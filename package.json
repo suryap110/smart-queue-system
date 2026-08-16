@@ -8,10 +8,11 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "chmod -R +x node_modules/.bin || true",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev": "concurrently --shell powershell.exe \"npm run dev:api\" \"npm run dev:web\"",
-    "build:web": "npm run build --workspace=apps/web",
+    "build:web": "cd apps/web && npx vite build",
     "build:api": "npm run build --workspace=apps/api",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
