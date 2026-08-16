@@ -1,0 +1,24 @@
+{
+  "name": "smart-queue-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-Grade Smart Queue Management System (Government Hospital Enterprise Edition)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev": "concurrently --shell powershell.exe \"npm run dev:api\" \"npm run dev:web\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "seed": "npm run seed --workspace=apps/api",
+    "db:push": "npm run db:push --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}

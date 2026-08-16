@@ -1,0 +1,14 @@
+{
+  "appId": "in.gov.aiiph.smartqueue",
+  "appName": "AIIPH Smart Queue System",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

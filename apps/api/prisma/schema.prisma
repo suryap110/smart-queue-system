@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branches  Branch[]
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  location       String
+  timezone       String       @default("Asia/Kolkata")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  departments    Department[]
+  users          User[]
+  tokens         Token[]
+  kiosks         KioskTerminal[]
+  surgePlans     EmergencySurgePlan[]
+}
+
+model Department {
+  id            String                 @id @default(uuid())
+  branchId      String
+  branch        Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name          String
+  code          String
+  type          String                 @default("OPD_CONSULTATION")
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  services      Service[]
+  counters      Counter[]
+  users         User[]
+  tokens        Token[]
+  transfersFrom TokenTransferHistory[] @relation("FromDept")
+  transfersTo   TokenTransferHistory[] @relation("ToDept")
+}
+
+model Service {
+  id                   String     @id @default(uuid())
+  departmentId         String
+  department           Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                 String
+  prefix               String
+  avgServiceTimeMinutes Int        @default(10)
+  maxCapacityPerDay    Int        @default(500)
+  isActive             Boolean    @default(true)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  tokens               Token[]
+}
+
+model Counter {
+  id               String            @id @default(uuid())
+  departmentId     String
+  department       Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  number           Int
+  name             String
+  roomNumber       String?
+  doctorName       String?
+  doctorStatus     String            @default("ACTIVE") // ACTIVE, ON_BREAK, IN_SURGERY
+  isAvailable      Boolean           @default(true)
+  currentStaffId   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tokens           Token[]
+  staffAssignments StaffAssignment[]
+  schedules        DoctorSchedule[]
+}
+
+model DoctorSchedule {
+  id                String   @id @default(uuid())
+  counterId         String
+  counter           Counter  @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  doctorId          String
+  shiftStart        String   // "09:00 AM"
+  shiftEnd          String   // "04:00 PM"
+  maxConsultations  Int      @default(50)
+  currentStatus     String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+}
+
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         String            @default("CITIZEN")
+  branchId     String?
+  branch       Branch?           @relation(fields: [branchId], references: [id])
+  departmentId String?
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  tokens       Token[]
+  assignments  StaffAssignment[]
+  auditLogs    AuditLog[]
+  vitalsLogged PatientVitals[]   @relation("NurseVitals")
+}
+
+model StaffAssignment {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  counterId    String
+  counter      Counter   @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+  isActive     Boolean   @default(true)
+}
+
+model Token {
+  id                   String                 @id @default(uuid())
+  tokenNumber          Int
+  displayCode          String
+  patientName          String
+  patientPhone         String
+  abhaId               String?
+  healthSchemeNo       String?
+  serviceId            String
+  service              Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  departmentId         String
+  department           Department             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  branchId             String
+  branch               Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  counterId            String?
+  counter              Counter?               @relation(fields: [counterId], references: [id])
+  userId               String?
+  user                 User?                  @relation(fields: [userId], references: [id])
+  status               String                 @default("WAITING")
+  priorityType         String                 @default("NORMAL")
+  triageLevel          String                 @default("GREEN_ROUTINE")
+  priorityScore        Float                  @default(1.0)
+  joinedAt             DateTime               @default(now())
+  calledAt             DateTime?
+  inServiceAt          DateTime?
+  completedAt          DateTime?
+  estimatedWaitMinutes Int                    @default(15)
+  predictedWaitMinutes Int?
+  teleConsultUrl       String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  transfers            TokenTransferHistory[]
+  notifications        Notification[]
+  feedback             Feedback?
+  vitals               PatientVitals?
+
+  @@index([departmentId, status])
+  @@index([branchId, createdAt])
+}
+
+model PatientVitals {
+  id           String   @id @default(uuid())
+  tokenId      String   @unique
+  token        Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  nurseId      String
+  nurse        User     @relation("NurseVitals", fields: [nurseId], references: [id])
+  systolicBp   Int?
+  diastolicBp  Int?
+  pulseRate    Int?
+  spo2Percent  Int?
+  tempFahrenheit Float?
+  triageRisk   String   @default("GREEN_STABLE") // RED_CRITICAL, YELLOW_URGENT, GREEN_STABLE
+  notes        String?
+  recordedAt   DateTime @default(now())
+}
+
+model KioskTerminal {
+  id               String   @id @default(uuid())
+  branchId         String
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  terminalCode     String   @unique // e.g. KIOSK-GATE-A
+  location         String
+  paperRollPercent Int      @default(100)
+  status           String   @default("ONLINE") // ONLINE, LOW_PAPER, OUT_OF_PAPER, MAINTENANCE
+  lastHeartbeatAt  DateTime @default(now())
+}
+
+model EmergencySurgePlan {
+  id                     String   @id @default(uuid())
+  branchId               String
+  branch                 Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  disasterLevel          String   @default("LEVEL_1_ELEVATED") // LEVEL_1_ELEVATED, LEVEL_2_MASS_CASUALTY, LEVEL_3_CRITICAL_ICU
+  reallocatedCountersCount Int    @default(4)
+  broadcastAlertText     String
+  isActive               Boolean  @default(false)
+  activatedAt            DateTime @default(now())
+}
+
+model TokenTransferHistory {
+  id                   String     @id @default(uuid())
+  tokenId              String
+  token                Token      @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  fromDepartmentId     String
+  fromDepartment       Department @relation("FromDept", fields: [fromDepartmentId], references: [id])
+  toDepartmentId       String
+  toDepartment         Department @relation("ToDept", fields: [toDepartmentId], references: [id])
+  transferredByStaffId String
+  reason               String?
+  createdAt            DateTime   @default(now())
+}
+
+model QueueHistory {
+  id                     String    @id @default(uuid())
+  tokenId                String
+  serviceId              String
+  departmentId           String
+  branchId               String
+  counterId              String?
+  priorityType           String
+  joinedAt               DateTime
+  startServiceAt         DateTime?
+  endServiceAt           DateTime?
+  waitDurationSeconds    Int
+  serviceDurationSeconds Int
+  queueLengthAtArrival   Int
+  activeCountersCount    Int
+  hourOfDay              Int
+  dayOfWeek              Int
+  createdAt              DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  tokenId   String?
+  token     Token?    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  channel   String
+  recipient String
+  title     String
+  message   String
+  status    String    @default("PENDING")
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Feedback {
+  id                      String   @id @default(uuid())
+  tokenId                 String   @unique
+  token                   Token    @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  rating                  Int
+  courtesyRating          Int      @default(5)
+  waitTimeSatisfaction    Int      @default(5)
+  comment                 String?
+  createdAt               DateTime @default(now())
+}

@@ -1,0 +1,16 @@
+{
+  "name": "AIIPH Smart Queue System",
+  "short_name": "SmartQueue",
+  "description": "Enterprise Government Hospital Smart Queue & Patient Flow App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c4a6e",
+  "theme_color": "#0369a1",
+  "icons": [
+    {
+      "src": "/hospital-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
