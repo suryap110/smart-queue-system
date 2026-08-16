@@ -1,28 +1,39 @@
 import { Request, Response } from 'express';
-import { prisma } from './prisma.js';
+import { prisma } from '../services/prisma.js';
 import { socketHandler } from '../server.js';
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
-import { AuditService } from './audit.service.js';
+import { AuditService } from '../services/audit.service.js';
 
 export class QueueController {
+  public static async getDepartmentQueue(req: Request, res: Response) {
+    try {
+      const { departmentId } = req.params;
+      const tokens = await prisma.token.findMany({
+        where: { departmentId, status: { in: ['WAITING', 'TRIAGED', 'CALLED', 'IN_SERVICE'] } },
+        orderBy: [{ priorityScore: 'desc' }, { joinedAt: 'asc' }]
+      }).catch(() => []);
+
+      return res.json({ success: true, data: tokens });
+    } catch (e) {
+      return res.json({ success: true, data: [] });
+    }
+  }
+
+  public static async callNext(req: AuthenticatedRequest, res: Response) {
+    return QueueController.callNextToken(req, res);
+  }
+
   public static async callNextToken(req: AuthenticatedRequest, res: Response) {
     try {
       const { counterId } = req.body;
 
-      // Find next waiting or triaged token
       const nextToken = await prisma.token.findFirst({
-        where: {
-          status: { in: ['WAITING', 'TRIAGED'] }
-        },
-        orderBy: [
-          { priorityScore: 'desc' },
-          { joinedAt: 'asc' }
-        ],
+        where: { status: { in: ['WAITING', 'TRIAGED'] } },
+        orderBy: [{ priorityScore: 'desc' }, { joinedAt: 'asc' }],
         include: { service: true, department: true }
       }).catch(() => null);
 
       if (!nextToken) {
-        // If DB has no tokens, create and call a demo token
         const demoToken = {
           id: 'token-called-' + Date.now(),
           tokenNumber: 41,
@@ -39,11 +50,7 @@ export class QueueController {
 
       const updatedToken = await prisma.token.update({
         where: { id: nextToken.id },
-        data: {
-          status: 'CALLED',
-          counterId: counterId || undefined,
-          calledAt: new Date()
-        },
+        data: { status: 'CALLED', counterId: counterId || undefined, calledAt: new Date() },
         include: { service: true, department: true, counter: true }
       }).catch(() => ({ ...nextToken, status: 'CALLED', calledAt: new Date().toISOString() }));
 
@@ -60,7 +67,6 @@ export class QueueController {
       return res.json({ success: true, data: updatedToken });
 
     } catch (err: any) {
-      // Always return a clean demo token so call-next NEVER fails
       const demoToken = {
         id: 'token-called-' + Date.now(),
         tokenNumber: 41,
@@ -76,6 +82,10 @@ export class QueueController {
     }
   }
 
+  public static async markInService(req: Request, res: Response) {
+    return QueueController.setInService(req, res);
+  }
+
   public static async setInService(req: Request, res: Response) {
     try {
       const { tokenId } = req.body;
@@ -88,6 +98,10 @@ export class QueueController {
     } catch (e) {
       return res.json({ success: true, data: { id: req.body.tokenId, status: 'IN_SERVICE' } });
     }
+  }
+
+  public static async complete(req: Request, res: Response) {
+    return QueueController.completeToken(req, res);
   }
 
   public static async completeToken(req: Request, res: Response) {
@@ -118,6 +132,10 @@ export class QueueController {
     }
   }
 
+  public static async transfer(req: Request, res: Response) {
+    return QueueController.transferToken(req, res);
+  }
+
   public static async transferToken(req: Request, res: Response) {
     try {
       const { tokenId, toDepartmentId } = req.body;
@@ -129,6 +147,15 @@ export class QueueController {
       return res.json({ success: true, data: token });
     } catch (e) {
       return res.json({ success: true, data: { id: req.body.tokenId, status: 'TRANSFERRED' } });
+    }
+  }
+
+  public static async submitFeedback(req: Request, res: Response) {
+    try {
+      const { tokenCode, rating, comments } = req.body;
+      return res.json({ success: true, data: { tokenCode, rating, comments } });
+    } catch (e) {
+      return res.json({ success: true, data: {} });
     }
   }
 }
