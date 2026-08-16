@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "node node_modules/prisma/build/index.js generate && tsc",
+    "build": "tsc",
     "start": "node dist/server.js",
-    "db:push": "node node_modules/prisma/build/index.js db push",
-    "db:generate": "node node_modules/prisma/build/index.js generate",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "test": "jest --detectOpenHandles --forceExit"
